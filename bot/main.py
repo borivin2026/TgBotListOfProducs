@@ -21,7 +21,14 @@ from services.deepgram_service import DeepgramService
 from services.gemini_service import GeminiService
 from utils.logger import logger
 
-# Инициализация зависимостей
+# 1. Инициализация Bot и Dispatcher на уровне модуля (для импорта в WSGI)
+bot = Bot(
+    token=TELEGRAM_TOKEN,
+    default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN)
+)
+dp = Dispatcher(storage=MemoryStorage())
+
+# Инициализация сервисов
 db = DatabaseManager()
 deepgram = DeepgramService(DEEPGRAM_API_KEY)
 gemini = GeminiService(GEMINI_API_KEY)
@@ -35,28 +42,26 @@ async def on_startup(bot: Bot):
     else:
         logger.info("Запуск в режиме Long Polling...")
 
-async def main():
-    """Точка входа в приложение."""
-    bot = Bot(
-        token=TELEGRAM_TOKEN,
-        default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN)
-    )
-    dp = Dispatcher(storage=MemoryStorage())
-
-    # Регистрация роутеров
+def setup_handlers(dispatcher: Dispatcher):
+    """Регистрация всех роутеров."""
     from bot.handlers.common import router as common_router
     from bot.handlers.shopping import router as shopping_router
     from bot.handlers.receipts import router as receipt_router
 
-    dp.include_router(common_router)
-    dp.include_router(shopping_router)
-    dp.include_router(receipt_router)
-
+    dispatcher.include_router(common_router)
+    dispatcher.include_router(shopping_router)
+    dispatcher.include_router(receipt_router)
+    
     # Регистрация функции запуска
-    dp.startup.register(on_startup)
+    dispatcher.startup.register(on_startup)
 
+# Сразу настраиваем хендлеры
+setup_handlers(dp)
+
+async def main():
+    """Точка входа для локального запуска или Long Polling."""
     if WEBHOOK_URL:
-        # Режим Webhook
+        # Режим Webhook (aiohttp)
         app = web.Application()
         webhook_requests_handler = SimpleRequestHandler(
             dispatcher=dp,
@@ -69,18 +74,12 @@ async def main():
         web.run_app(app, host=WEBAPP_HOST, port=WEBAPP_PORT)
     else:
         # Режим Long Polling
+        logger.info("Бот запущен...")
         try:
             await dp.start_polling(bot)
         finally:
             await bot.session.close()
 
 if __name__ == "__main__":
-    if WEBHOOK_URL:
-        # В режиме вебхука asyncio.run вызывается внутри web.run_app
-        import asyncio
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        # Для вебхуков мы просто вызываем main, который сам запустит сервер
-        asyncio.run(main())
-    else:
-        asyncio.run(main())
+    import asyncio
+    asyncio.run(main())
