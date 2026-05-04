@@ -3,6 +3,6 @@ google-genai~=1.74.0
 deepgram-sdk~=7.0.0
 python-dotenv~=1.2.2
 aiosqlite~=0.22.1
-pydantic~=2.13.3
+pydantic
 aiohttp~=3.13.5
 flask~=3.0.2
