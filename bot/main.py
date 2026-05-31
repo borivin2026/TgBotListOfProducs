@@ -66,9 +66,18 @@ async def main_polling():
     finally:
         await bot.session.close()
 
+async def handle_wake_up(request):
+    """Эндпоинт для мониторинга, чтобы сервис не засыпал (ping)."""
+    return web.json_response({"status": "ok", "message": "Bot is awake"})
+
 def setup_webhook_app():
     """Настройка aiohttp приложения для Webhook."""
     app = web.Application()
+    
+    # Эндпоинты для UptimeRobot и health-чеков
+    app.router.add_get('/', handle_wake_up)
+    app.router.add_get('/wake-up', handle_wake_up)
+
     webhook_requests_handler = SimpleRequestHandler(
         dispatcher=dp,
         bot=bot,
