@@ -18,7 +18,7 @@ async def process_list_update(message: types.Message, text: str):
     """Общая логика обновления списка (для голоса и текста)."""
     user_id = message.from_user.id
     
-    # 1. Получаем текущий активный список
+    # 1. Получаем текущий активный список -
     active_list = await db.get_active_list(user_id)
     if not active_list:
         list_id = await db.create_shopping_list(user_id)
