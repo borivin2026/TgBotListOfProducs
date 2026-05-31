@@ -1,5 +1,5 @@
 import io
-from aiogram import Router, types, F, Bot
+from aiogram import Router, types, F, Bot, exceptions
 from aiogram.types import BufferedInputFile
 from database.manager import DatabaseManager
 from services.deepgram_service import DeepgramService
@@ -28,7 +28,12 @@ async def process_list_update(message: types.Message, text: str):
         current_items = active_list.items
 
     # 2. Обрабатываем через Gemini
-    status_msg = await message.answer("⏳ Анализирую список...")
+    try:
+        status_msg = await message.answer("⏳ Анализирую список...")
+    except exceptions.TelegramForbiddenError:
+        logger.warning(f"Пользователь {user_id} заблокировал бота.")
+        return
+
     try:
         updated_items = await gemini.parse_shopping_list(text, current_items)
         

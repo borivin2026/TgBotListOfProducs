@@ -4,6 +4,8 @@ from google import genai
 from google.genai import types
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from google.genai.errors import ServerError
 from models.entities import ListItem, ReceiptItem
 from utils.logger import logger
 
@@ -20,8 +22,42 @@ class GeminiService:
 
     def __init__(self, api_key: str):
         self.client = genai.Client(api_key=api_key)
-        # self.model_id = 'gemini-3-flash-preview' # high traffic
-        self.model_id = 'gemini-flash-lite-latest' # high traffic
+        # Приоритетный список моделей для фолбека
+        self.model_pool = [
+            'gemini-flash-lite-latest', 
+            'gemini-2.0-flash',
+            'gemini-1.5-flash'
+        ]
+
+    @retry(
+        stop=stop_after_attempt(3), # Уменьшим количество попыток на одну модель
+        wait=wait_exponential(multiplier=1, min=1, max=4),
+        retry=retry_if_exception_type(ServerError),
+        reraise=True
+    )
+    async def _generate_content_single_attempt(self, model_id: str, **kwargs):
+        """Попытка генерации контента для конкретной модели с короткими ретраями."""
+        return await self.client.aio.models.generate_content(model=model_id, **kwargs)
+
+    async def _generate_with_fallback(self, **kwargs):
+        """Перебор моделей из пула при возникновении ошибок сервера (503)."""
+        last_exception = None
+        for model_id in self.model_pool:
+            try:
+                logger.info(f"Пробуем модель: {model_id}")
+                return await self._generate_content_single_attempt(model_id=model_id, **kwargs)
+            except ServerError as e:
+                last_exception = e
+                logger.warning(f"Модель {model_id} недоступна (503). Пробуем следующую...")
+                continue
+            except Exception as e:
+                # Если ошибка не 503 (например, 400 Bad Request), то пробовать другие модели смысла мало
+                logger.error(f"Критическая ошибка при вызове {model_id}: {e}")
+                raise e
+        
+        if last_exception:
+            raise last_exception
+        raise Exception("Все модели из пула недоступны.")
 
 
     async def parse_shopping_list(self, text: str, current_items: List[ListItem] = []) -> List[ListItem]:
@@ -49,9 +85,8 @@ class GeminiService:
 2. Если пользователь просит "удалить" или "убери" — удали товар.
 3. Если пользователь просит "заменить" — замени товар или количество.
 """
-        # Используем асинхронный вызов через aio
-        response = await self.client.aio.models.generate_content(
-            model=self.model_id,
+        # Используем механизм фолбека (перебора моделей)
+        response = await self._generate_with_fallback(
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type='application/json',
@@ -95,8 +130,7 @@ class GeminiService:
 Если какие-то данные нечеткие, постарайся распознать их максимально точно.
 """
         try:
-            response = await self.client.aio.models.generate_content(
-                model=self.model_id,
+            response = await self._generate_with_fallback(
                 contents=[
                     prompt,
                     types.Part.from_bytes(data=image_bytes, mime_type='image/jpeg')

@@ -1,5 +1,5 @@
 import io
-from aiogram import Router, types, F, Bot
+from aiogram import Router, types, F, Bot, exceptions
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -32,7 +32,12 @@ async def cmd_receipt(message: types.Message, state: FSMContext):
 @router.message(ReceiptStates.waiting_for_photo, F.photo | (F.document & F.document.mime_type.startswith('image/')))
 async def handle_receipt_image(message: types.Message, bot: Bot, state: FSMContext):
     """Обработка фото или файла изображения чека."""
-    status_msg = await message.answer("🔍 Распознаю товары в чеке... Это может занять несколько секунд.")
+    user_id = message.from_user.id
+    try:
+        status_msg = await message.answer("🔍 Распознаю товары в чеке... Это может занять несколько секунд.")
+    except exceptions.TelegramForbiddenError:
+        logger.warning(f"Пользователь {user_id} заблокировал бота.")
+        return
     
     if message.photo:
         photo = message.photo[-1]
@@ -50,8 +55,13 @@ async def handle_receipt_image(message: types.Message, bot: Bot, state: FSMConte
     
     # Скачиваем файл
     file_content = io.BytesIO()
-    await bot.download_file(file_info.file_path, file_content)
-    
+    if file_info.file_path:
+        await bot.download_file(file_info.file_path, file_content)
+    else:
+        logger.error(f"Не удалось скачать файл {file_info.file_id}")
+        await message.answer("Произошла ошибка при загрузке файла")
+        return
+
     # Анализируем через Gemini Vision
     data = await gemini.analyze_receipt(file_content.getvalue())
     
