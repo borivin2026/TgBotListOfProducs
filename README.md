@@ -50,3 +50,16 @@ python bot/main.py
 Подробное описание проекта и этапы реализации находятся в папке `docs/`:
 - [Техническое задание](docs/TechnicalSpecification.md)
 - [План реализации](docs/ImplementationPlan.md)
+
+## ☁️ Деплой на Render
+Бот поддерживает автоматический запуск через Webhook (вместо Long Polling), если запущен на платформе Render.
+
+1. Зарегистрируйтесь на [Render](https://render.com/).
+2. Создайте новый **Web Service**, подключив репозиторий.
+3. В настройках сервиса Render укажите переменные окружения (**Environment Variables**):
+   - `TELEGRAM_TOKEN` — ваш токен бота.
+   - `DEEPGRAM_API_KEY` — ключ Deepgram.
+   - `GEMINI_API_KEY` — ключ Google Gemini.
+   - `PYTHON_VERSION` = `3.11.8` (опционально, используется в `render.yaml`).
+4. Настройки запуска (`Start Command`) и установки (`Build Command`) будут автоматически подхвачены из файла `render.yaml`.
+5. Как только сервис будет запущен, переменная `RENDER_EXTERNAL_URL` будет автоматически добавлена платформой, и бот сам переключится в режим Webhook.

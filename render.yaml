@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: tgbot-list-of-products
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python bot/main.py"
+    envVars:
+      - key: TELEGRAM_TOKEN
+        sync: false
+      - key: DEEPGRAM_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: "3.11.8"

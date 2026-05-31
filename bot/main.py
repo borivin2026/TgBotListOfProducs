@@ -58,28 +58,31 @@ def setup_handlers(dispatcher: Dispatcher):
 # Сразу настраиваем хендлеры
 setup_handlers(dp)
 
-async def main():
-    """Точка входа для локального запуска или Long Polling."""
+async def main_polling():
+    """Точка входа для локального запуска (Long Polling)."""
+    logger.info("Бот запущен...")
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await bot.session.close()
+
+def setup_webhook_app():
+    """Настройка aiohttp приложения для Webhook."""
+    app = web.Application()
+    webhook_requests_handler = SimpleRequestHandler(
+        dispatcher=dp,
+        bot=bot,
+    )
+    webhook_requests_handler.register(app, path=WEBHOOK_PATH)
+    setup_application(app, dp, bot=bot)
+    return app
+
+if __name__ == "__main__":
     if WEBHOOK_URL:
         # Режим Webhook (aiohttp)
-        app = web.Application()
-        webhook_requests_handler = SimpleRequestHandler(
-            dispatcher=dp,
-            bot=bot,
-        )
-        webhook_requests_handler.register(app, path=WEBHOOK_PATH)
-        setup_application(app, dp, bot=bot)
-        
         logger.info(f"Запуск веб-сервера на {WEBAPP_HOST}:{WEBAPP_PORT}")
+        app = setup_webhook_app()
         web.run_app(app, host=WEBAPP_HOST, port=WEBAPP_PORT)
     else:
         # Режим Long Polling
-        logger.info("Бот запущен...")
-        try:
-            await dp.start_polling(bot)
-        finally:
-            await bot.session.close()
-
-if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+        asyncio.run(main_polling())
