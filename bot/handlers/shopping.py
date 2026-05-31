@@ -1,6 +1,6 @@
 import io
 from aiogram import Router, types, F, Bot, exceptions
-from aiogram.types import BufferedInputFile
+from aiogram.types import BufferedInputFile, Voice
 from database.manager import DatabaseManager
 from services.deepgram_service import DeepgramService
 from services.gemini_service import GeminiService
@@ -78,6 +78,11 @@ async def handle_voice(message: types.Message, bot: Bot):
     """Обработка голосовых сообщений."""
     voice = message.voice
     
+    # Проверка длительности (макс 3 минуты = 180 секунд)
+    if voice.duration > 180:
+        await message.answer("⚠️ Голосовое сообщение слишком длинное. Пожалуйста, запишите сообщение длительностью не более 3 минут.")
+        return
+        
     # Проверка размера (макс 2МБ для голоса)
     if not validate_file_size(voice.file_size, max_mb=2):
         await message.answer("⚠️ Голосовое сообщение слишком большое. Пожалуйста, запишите более короткое сообщение (до 2 МБ).")
