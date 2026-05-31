@@ -78,14 +78,14 @@ async def handle_voice(message: types.Message, bot: Bot):
     """Обработка голосовых сообщений."""
     voice = message.voice
     
-    # Проверка длительности (макс 3 минуты = 180 секунд)
-    if voice.duration > 180:
-        await message.answer("⚠️ Голосовое сообщение слишком длинное. Пожалуйста, запишите сообщение длительностью не более 3 минут.")
+    # Проверка длительности (макс 5 минут)
+    if voice.duration > 300:
+        await message.answer("⚠️ Голосовое сообщение слишком длинное. Пожалуйста, запишите сообщение длительностью не более 5 минут.")
         return
         
     # Проверка размера (макс 2МБ для голоса)
-    if not validate_file_size(voice.file_size, max_mb=2):
-        await message.answer("⚠️ Голосовое сообщение слишком большое. Пожалуйста, запишите более короткое сообщение (до 2 МБ).")
+    if not validate_file_size(voice.file_size, max_mb=12):
+        await message.answer("⚠️ Голосовое сообщение слишком большое. Пожалуйста, запишите более короткое сообщение (до 12 МБ).")
         return
 
     file_info = await bot.get_file(voice.file_id)
